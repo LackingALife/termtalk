@@ -27,8 +27,13 @@ int main(void) {
     struct sockaddr *a = res->ai_addr;
     struct sockaddr_in *a_b = (struct sockaddr_in *) a;
 
-    inet_ntop(res->ai_family, &(a_b->sin_addr), l_out, INET_ADDRSTRLEN);
+    if (!inet_ntop(res->ai_family, &(a_b->sin_addr), l_out, INET_ADDRSTRLEN)) {
+        freeaddrinfo(res);
+        return -1;
+    }
+
     printf("%s:%hi", l_out, ntohs(a_b->sin_port));
 
+    freeaddrinfo(res);
     return 0;
 }
