@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 
 #define PORT "50607"
+#define IP "localhost"
 
 #define GREEN_T "\033[1;32m"
 #define RED_T   "\033[1;31m"
@@ -20,7 +21,7 @@ int main(void) {
     hints.ai_socktype = SOCK_STREAM;
 
     struct addrinfo *res;
-    int ret = getaddrinfo("localhost", PORT, &hints, &res);
+    int ret = getaddrinfo(IP, PORT, &hints, &res);
 
     if (ret) {
         perror(RED_T "call to getaddrinfo() failed.\n" RESET_T);
@@ -54,11 +55,14 @@ int main(void) {
         freeaddrinfo(res);
         return -1;
     }
-
-    char msg[] = "testing test";
-    int b = send(sock, msg, sizeof(msg), 0);
-    printf(GREEN_T "sent %d out of %d bytes!\n" RESET_T, b, (int) sizeof(msg));
-
+	printf("You can now message freely!\n");
+	while (0 != 1) {
+		char msg[1024];
+		fgets(msg, 1024, stdin);
+		int b = send(sock, msg, sizeof(msg), 0);
+		printf(GREEN_T "sent %d out of %d bytes!\n" RESET_T, b, (int) sizeof(msg));
+		if (strcmp(msg, "/stop") == 0) break;
+	}
     freeaddrinfo(res);
 
     return 0;
