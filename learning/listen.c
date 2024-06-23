@@ -90,8 +90,10 @@ int main(void) {
             break;
         }
 
-        printf("%s\n", buf);
+        printf("%s", buf);
     }
+
+    printf("\n");
 
     freeaddrinfo(res);
 
