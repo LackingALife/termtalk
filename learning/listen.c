@@ -5,8 +5,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#define N 10
+#define IP "localhost"
 #define PORT "50607"
+#define N 10
 
 #define GREEN_T "\033[1;32m"
 #define RED_T   "\033[1;31m"
@@ -21,7 +22,7 @@ int main(void) {
     hints.ai_socktype = SOCK_STREAM;
 
     struct addrinfo *res;
-    int ret = getaddrinfo("localhost", PORT, &hints, &res);
+    int ret = getaddrinfo(IP, PORT, &hints, &res);
 
     if (ret) {
         printf(RED_T "%s\n" RESET_T, gai_strerror(ret));
@@ -76,9 +77,21 @@ int main(void) {
         printf(GREEN_T "connected to %s!\n" RESET_T, ip_out);
     }
 
-    char buf[1024];
-    int b = recv(new_fd, buf, sizeof(buf), 0);
-    printf("%s", buf);
+    while (1) {
+        char buf[1024];
+        int b = recv(new_fd, buf, sizeof(buf), 0);
+
+        if (b <= 0) {
+            printf("%s disconnected!", ip_out);
+            break;
+        }
+        if (strcmp(buf, "/stop") == 0) {
+            printf("%s ordered a /stop!", ip_out);
+            break;
+        }
+
+        printf("%s\n", buf);
+    }
 
     freeaddrinfo(res);
 
