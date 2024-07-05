@@ -24,8 +24,8 @@ typedef enum {
 } MODE;
 
 typedef enum {
-	READ, WRITE
-} PIPE;
+	RECIEVE, SEND
+} THREAD;
 
 typedef struct {
 	struct addrinfo *target;
@@ -111,7 +111,8 @@ void *recieve_thread(void *arg){
 	return 0;
 }
 
-void *send_thread(struct addrinfo *target, int sock){
+void *send_thread(void *arg){
+	thread_args *args = (thread_args *) arg;		
 
 	return 0;
 }
@@ -160,15 +161,21 @@ int main(int argc, char **argv){
 	*/
 
 
-	args[RECIEVE]->addrinfo = local;
-	args[RECIEVE]->sock = recieve_sock;
+	args[RECIEVE].target = local;
+	args[RECIEVE].sock = recieve_sock;
 
-	args[SEND]->addrinfo = peer;
-	args[SEND]->sock = send_sock;
+	args[SEND].target = peer;
+	args[SEND].sock = send_sock;
 	
 	static int END = 0;
 
-	pthread_create()
+	pthread_create(&thread_id[RECIEVE], NULL, recieve_thread, &args[RECIEVE]);
 
+	pthread_create(&thread_id[SEND], NULL, send_thread, &args[SEND]);
+
+	for (int i = 0; i < 2; i++) {
+		pthread_join(thread_id[i], NULL);
+	}
+	
 	return 0;
 }
