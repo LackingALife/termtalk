@@ -17,6 +17,10 @@ typedef enum {
     IP, PORT
 } OPTIONS;
 
+typedef enum {
+	BIND, CONNECT
+} MODE;
+
 
 void usage(char *name) {
     printf("Usage: %s --ip=<ip> --port=<port>\n", name);
@@ -51,26 +55,44 @@ int process_opts(char *ip, char *port, int argc, char **argv) {
     return optind;
 }
 
-int check_addr(char *ip, char *port, struct addrinfo hints, struct addrinfo *target) {
+int check_addr(char *ip, char *port, struct addrinfo hints, struct addrinfo *target, char *target_name) {
 	int ret;	
+	if (!target_name) target_name = "Unknown";
 	ret = getaddrinfo(ip, port, &hints, &target);
     if (ret) {
-        fprintf(stderr, RED_T "getaddrinfo (Peer) failed: %s\n" RESET_T, gai_strerror(ret));
+        fprintf(stderr, RED_T "getaddrinfo() to %s failed: %s\n" RESET_T, target_name, gai_strerror(ret));
 		return -1;
     }
 	return 0;
 }
 
-int setup_socket(struct addrinfo *target){
+int setup_socket(MODE mode, struct addrinfo *target){
+
+	int ret;
 
 	int sock = socket(target->ai_family, target->ai_socktype, target->ai_protocol);
-
 	if (sock == -1) {
-        fprintf(stderr, RED_T "socket failed\n" RESET_T);
+        fprintf(stderr, RED_T "socket() failed\n" RESET_T);
 		return -1;
 	}
-	
-	return 0;
+	if (mode == BIND) {
+		ret = bind(sock, target->ai_addr, target->ai_addrlen);
+		if (ret == -1) {
+			fprintf(stderr, RED_T "bind() failed\n" RESET_T);
+			return -1;
+		}
+	} else if (mode == CONNECT) {
+		ret = connect(sock, target->ai_addr, target->ai_addrlen);
+		if (ret == -1) {
+			fprintf(stderr, RED_T "connect() failed\n" RESET_T);
+			return -1;
+		}
+	} else {
+		fprintf(stderr, RED_T "setup_socket() failed\n" RESET_T);
+		return -1;
+	}
+
+	return sock;
 }
 
 int main(int argc, char **argv){
@@ -94,11 +116,15 @@ int main(int argc, char **argv){
 	hints.ai_flags = AI_PASSIVE;
 
 	//Custom function
-	if (check_addr(ip, port, hints, local) == -1) return -1;
+	if (check_addr(NULL, port, hints, local, "local") == -1) return -1;
 
-	if (check_addr(ip, port, hints, peer) == -1) return -1;
+	if (check_addr(ip, port, hints, peer, "peer") == -1) return -1;
 
-	
+	int recieve_sock, send_sock;
+
+	if ((recieve_sock = setup_socket(BIND, local)) == -1) return -1;
+
+	if ((send_sock = setup_socket(CONNECT, peer)) == -1) return -1;
 
     return 0;
 }
