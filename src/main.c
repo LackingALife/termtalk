@@ -65,10 +65,10 @@ int process_opts(char *ip, char *port, int argc, char **argv) {
 	return optind;
 }
 
-int check_addr(char *ip, char *port, struct addrinfo hints, struct addrinfo *target, char *target_name) {
+int check_addr(char *ip, char *port, struct addrinfo hints, struct addrinfo **target, char *target_name) {
 	int ret;	
 	if (!target_name) target_name = "Unknown";
-	ret = getaddrinfo(ip, port, &hints, &target);
+	ret = getaddrinfo(ip, port, &hints, *(&target));
 	if (ret) {
 		fprintf(stderr, RED_T "getaddrinfo() to %s failed: %s\n" RESET_T, target_name, gai_strerror(ret));
 		return -1;
@@ -108,6 +108,7 @@ int setup_socket(MODE mode, struct addrinfo *target){
 void *recieve_thread(void *arg){
 	thread_args *args = (thread_args *) arg;		
 
+	
 	return 0;
 }
 
@@ -138,15 +139,18 @@ int main(int argc, char **argv){
 	hints.ai_flags = AI_PASSIVE;
 
 	//Custom function
-	if (check_addr(NULL, port, hints, local, "local") == -1) return -1;
+	if (check_addr(NULL, port, hints, &local, "local") == -1) return -1;
 
-	if (check_addr(ip, port, hints, peer, "peer") == -1) return -1;
+	if (check_addr(ip, port, hints, &peer, "peer") == -1) return -1;
+
+	printf("%p, %p\n", &peer, &local);
 
 	int recieve_sock, send_sock;
+	recieve_sock = setup_socket(BIND, local);
+	if (recieve_sock == -1) return -1;
 
-	if ((recieve_sock = setup_socket(BIND, local)) == -1) return -1;
-
-	if ((send_sock = setup_socket(CONNECT, peer)) == -1) return -1;
+	send_sock = setup_socket(CONNECT, peer);
+	if (send_sock == -1) return -1;
 	
 	pthread_t thread_id[2];
 	thread_args args[2];
@@ -159,7 +163,6 @@ int main(int argc, char **argv){
 		pipe(pipes[i]);
 	}
 	*/
-
 
 	args[RECIEVE].target = local;
 	args[RECIEVE].sock = recieve_sock;

@@ -4,6 +4,9 @@ TARGET_EXEC := chatter
 BUILD_DIR := ./build
 SRC_DIRS := ./src
 
+CFLAGS = -g
+
+CC = gcc
 # Find all the C and C++ files we want to compile
 # Note the single quotes around the * expressions. The shell will incorrectly expand these otherwise, but we want to send the * directly to the find command.
 SRCS := $(shell find $(SRC_DIRS) -name '*.c')
@@ -23,7 +26,7 @@ INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
 # The final build step.
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
-	$(CXX) $(OBJS) -o $@ $(LDFLAGS)
+	$(CC) $(OBJS) -o $@ $(LDFLAGS)
 
 # Build step for C source
 $(BUILD_DIR)/%.c.o: %.c
