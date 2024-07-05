@@ -51,6 +51,28 @@ int process_opts(char *ip, char *port, int argc, char **argv) {
     return optind;
 }
 
+int check_addr(char *ip, char *port, struct addrinfo hints, struct addrinfo *target) {
+	int ret;	
+	ret = getaddrinfo(ip, port, &hints, &target);
+    if (ret) {
+        fprintf(stderr, RED_T "getaddrinfo (Peer) failed: %s\n" RESET_T, gai_strerror(ret));
+		return -1;
+    }
+	return 0;
+}
+
+int setup_socket(struct addrinfo *target){
+
+	int sock = socket(target->ai_family, target->ai_socktype, target->ai_protocol);
+
+	if (sock == -1) {
+        fprintf(stderr, RED_T "socket failed\n" RESET_T);
+		return -1;
+	}
+	
+	return 0;
+}
+
 int main(int argc, char **argv){
     int ret;
     char ip[INET_ADDRSTRLEN] = {0};
@@ -64,17 +86,19 @@ int main(int argc, char **argv){
         return -1;
     }
 
-    struct addrinfo hints, *res;
+    struct addrinfo hints, *local, *peer;
     memset(&hints, 0, sizeof(hints));
 
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
 
-    ret = getaddrinfo(ip, port, &hints, &res);
-    if (ret) {
-        printf("getaddrinfo failed: %s\n",gai_strerror(ret));
-        return -1;
-    }
+	//Custom function
+	if (check_addr(ip, port, hints, local) == -1) return -1;
+
+	if (check_addr(ip, port, hints, peer) == -1) return -1;
+
+	
 
     return 0;
 }
