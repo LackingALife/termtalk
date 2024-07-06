@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <time.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <string.h>
@@ -6,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 
 #include <pthread.h>
 
@@ -24,7 +26,7 @@ typedef enum {
 } MODE;
 
 typedef enum {
-	RECIEVE, SEND
+	RECEIVE, SEND
 } THREAD;
 
 typedef struct {
@@ -76,6 +78,13 @@ int check_addr(char *ip, char *port, struct addrinfo hints, struct addrinfo **ta
 	return 0;
 }
 
+int diff_time(struct timespec time1, struct timespec time2) {
+
+	int ret;
+	ret = time1.tv_sec - time2.tv_sec;
+	return ret;
+}
+
 int setup_socket(MODE mode, struct addrinfo *target){
 
 	int ret;
@@ -92,10 +101,18 @@ int setup_socket(MODE mode, struct addrinfo *target){
 			return -1;
 		}
 	} else if (mode == CONNECT) {
-		ret = connect(sock, target->ai_addr, target->ai_addrlen);
-		if (ret == -1) {
-			fprintf(stderr, RED_T "connect() failed\n" RESET_T);
-			return -1;
+		struct timespec initial_time, current_time;
+		clock_gettime(CLOCK_MONOTONIC, &initial_time);
+		while(1) {
+			ret = connect(sock, target->ai_addr, target->ai_addrlen);
+			if (ret != -1) {
+				break;
+			}
+			clock_gettime(CLOCK_MONOTONIC, &current_time);
+			if (diff_time(current_time, initial_time) > 5) {
+				fprintf(stderr, RED_T "connect() timed out!\n" RESET_T);
+				return -1;
+			}
 		}
 	} else {
 		fprintf(stderr, RED_T "setup_socket() failed\n" RESET_T);
@@ -105,7 +122,7 @@ int setup_socket(MODE mode, struct addrinfo *target){
 	return sock;
 }
 
-void *recieve_thread(void *arg){
+void *receive_thread(void *arg){
 	thread_args *args = (thread_args *) arg;		
 
 	
@@ -118,8 +135,25 @@ void *send_thread(void *arg){
 	return 0;
 }
 
-int main(int argc, char **argv){
-	int ret;
+void print_addr(struct addrinfo *target) {
+
+	if (!target) return;
+
+    char l_out[INET_ADDRSTRLEN];
+
+    struct sockaddr *a = target->ai_addr;
+    struct sockaddr_in *a_b = (struct sockaddr_in *) a;
+
+    if (!inet_ntop(target->ai_family, &(a_b->sin_addr), l_out, INET_ADDRSTRLEN)) {
+		fprintf(stderr, RED_T "inet_ntop() failed in print_addr()!\n" RESET_T);
+        return;
+    }
+
+    printf("%s:%hi\n", l_out, ntohs(a_b->sin_port));
+
+}
+
+int main(int argc, char **argv){ int ret;
 	char ip[INET_ADDRSTRLEN] = {0};
 	char port[PORT_STRLEN] = {0};
 
@@ -136,43 +170,34 @@ int main(int argc, char **argv){
 
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = AI_PASSIVE;
 
 	//Custom function
-	if (check_addr(NULL, port, hints, &local, "local") == -1) return -1;
+	if (check_addr("localhost", port, hints, &local, "local") == -1) return -1;
 
 	if (check_addr(ip, port, hints, &peer, "peer") == -1) return -1;
 
-	printf("%p, %p\n", &peer, &local);
+	print_addr(local);
+	print_addr(peer);
 
-	int recieve_sock, send_sock;
-	recieve_sock = setup_socket(BIND, local);
-	if (recieve_sock == -1) return -1;
+	int receive_sock, send_sock;
+	receive_sock = setup_socket(BIND, local);
+	if (receive_sock == -1) return -1;
 
 	send_sock = setup_socket(CONNECT, peer);
 	if (send_sock == -1) return -1;
 	
 	pthread_t thread_id[2];
 	thread_args args[2];
-	
-	//Pipes are not needed yet
-	/*
-	int pipes[2][2];
-	
-	for (int i = 0; i < 2; i++) {
-		pipe(pipes[i]);
-	}
-	*/
 
-	args[RECIEVE].target = local;
-	args[RECIEVE].sock = recieve_sock;
+	args[RECEIVE].target = local;
+	args[RECEIVE].sock = receive_sock;
 
 	args[SEND].target = peer;
 	args[SEND].sock = send_sock;
 	
 	static int END = 0;
 
-	pthread_create(&thread_id[RECIEVE], NULL, recieve_thread, &args[RECIEVE]);
+	pthread_create(&thread_id[RECEIVE], NULL, receive_thread, &args[RECEIVE]);
 
 	pthread_create(&thread_id[SEND], NULL, send_thread, &args[SEND]);
 
